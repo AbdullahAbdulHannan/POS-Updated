@@ -13,7 +13,7 @@ import { loadStripe } from '@stripe/stripe-js';
 
 // Replace with your actual Stripe Publishable Key
 const HomePage = () => {
-  const stripePromise = loadStripe("pk_test_51RfFqjPIM2xb8ciPB6UGYDf4LLIIwOb1D2Jml1XYY0b7AY3QrjUjQvykBN7yxyfb76lsncJJWMZpkhsbwqtrrFcz00de9a1c7Q");
+  const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLIC_KEY);
 const navigate = useNavigate();
  const [packages, setPackages] = useState([]);
 const [selectedPackage, setSelectedPackage] = useState(null);
