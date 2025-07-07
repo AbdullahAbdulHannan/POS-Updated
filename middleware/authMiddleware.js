@@ -11,7 +11,7 @@ const verifyToken = (requiredRole) => {
 // console.log("Authenticated:", decoded);
 
       // Role check from token first
- // ✅ Support both single role and array of roles
+ //   Support both single role and array of roles
 if (
   requiredRole &&
   !(

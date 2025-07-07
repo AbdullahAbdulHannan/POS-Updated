@@ -40,7 +40,7 @@ const createCheckoutSession = async (req, res) => {
     const pkg = await Package.findById(packageId);
     if (!pkg) return res.status(404).json({ message: "Package not found" });
 
-    // ✅ Check if email already exists (DOUBLE VALIDATION)
+    //   Check if email already exists (DOUBLE VALIDATION)
     const existingRequest = await Request.findOne({ email });
     const existingAdmin = await Admin.findOne({ email });
 

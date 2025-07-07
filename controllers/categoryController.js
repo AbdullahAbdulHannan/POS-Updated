@@ -57,7 +57,7 @@ const createCategory = async (req, res) => {
     }
   };
   
-  // ✅ CRUCIAL EXPORT
+  //   CRUCIAL EXPORT
   module.exports = {
     createCategory,
     getCategories,
