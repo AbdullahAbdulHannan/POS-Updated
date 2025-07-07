@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from "../utils/axiosConfig";
+import { getTrustedUtcDate } from '../utils/dateUtils';
 
 export const useBills = (apiEndpoint, isAdmin = false) => {
   const [billsData, setBillsData] = useState([]);
@@ -7,6 +8,7 @@ export const useBills = (apiEndpoint, isAdmin = false) => {
   const [groupedBills, setGroupedBills] = useState({});
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [trustedDate, setTrustedDate] = useState(null);
 
   const fetchBills = async () => {
     try {
@@ -57,7 +59,19 @@ export const useBills = (apiEndpoint, isAdmin = false) => {
   };
 
   useEffect(() => {
-    fetchBills();
+    async function fetchTrustedDateAndBills() {
+      // Try to get cached date first
+      let date = getTrustedUtcDate();
+      
+      // If no cached date, fetch from API
+      if (!date) {
+        date = await getTrustedUtcDate();
+      }
+      
+      setTrustedDate(date);
+      fetchBills();
+    }
+    fetchTrustedDateAndBills();
   }, []);
 
   const filterBills = (searchTerm, dateFilter, selectedUser = null) => {
@@ -84,10 +98,9 @@ export const useBills = (apiEndpoint, isAdmin = false) => {
     }
 
     // Apply date filter
-    if (dateFilter !== "all") {
-      const now = new Date();
-      const filterDate = new Date();
-
+    if (dateFilter !== "all" && trustedDate) {
+      const now = new Date(trustedDate);
+      const filterDate = new Date(trustedDate);
       switch (dateFilter) {
         case "7days":
           filterDate.setDate(now.getDate() - 7);
@@ -101,7 +114,6 @@ export const useBills = (apiEndpoint, isAdmin = false) => {
         default:
           break;
       }
-
       filtered = filtered.filter(bill => new Date(bill.date) >= filterDate);
     }
 

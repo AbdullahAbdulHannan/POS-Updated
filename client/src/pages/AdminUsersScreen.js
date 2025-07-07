@@ -14,9 +14,7 @@ const AdminUsersScreen = () => {
         const { data } = await axios.get("/api/admin/users", {
           headers: { Authorization: `Bearer ${token}` }
         });
-        console.log(data);
         setUsers(data);
-        // console.log(users);
       } catch (err) {
         setError("Failed to fetch users");
       } finally {

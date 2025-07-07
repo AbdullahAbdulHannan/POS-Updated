@@ -10,6 +10,7 @@ import { checkTokenExpiry } from "./utils/checkTokenExpiry";
 import HomePage from "./pages/HomePage";
 import PaymentSuccess from "./pages/PaymentSucces";
 import Hold from "./pages/Hold";
+import CheckoutSuccess from "./pages/CheckoutSuccess";
 
 function App() {
   useEffect(() => {
@@ -48,6 +49,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/hold" element={<Hold />} />
           <Route path="/payment-success" element={<PaymentSuccess />} />
+          <Route path="/checkout-success" element={<CheckoutSuccess />} />
         </Routes>
       </BrowserRouter>
     </>

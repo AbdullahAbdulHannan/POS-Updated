@@ -41,7 +41,7 @@ const InvoiceModal = ({ isOpen, onClose, selectedBill }) => {
         <div ref={componentRef} className="p-6 bg-white">
           <div className="text-center mb-8">
             <h1 className="text-2xl font-bold text-gray-900 mb-2">
-              Techinfo YT POS
+               POS
             </h1>
             <p className="text-gray-600">
               Contact: 123456 | Karachi Pakistan
@@ -81,29 +81,63 @@ const InvoiceModal = ({ isOpen, onClose, selectedBill }) => {
                 </tr>
               </thead>
               <tbody>
-                {selectedBill.cartItems?.map((item, index) => (
-                  <tr key={index} className="border-b border-gray-100">
-                    <td className="py-3 text-gray-900">{item.name}</td>
-                    <td className="py-3 text-gray-700">{item.quantity}</td>
-                    <td className="py-3 text-gray-700">${item.price}</td>
-                    <td className="py-3 text-gray-900">${(item.quantity * item.price).toLocaleString()}</td>
-                  </tr>
-                ))}
+                {selectedBill.cartItems?.map((item, index) => {
+                  let detail = null;
+                  let total = 0;
+                  if (item.priceType === "sqft" && item.inputs?.width && item.inputs?.height) {
+                    const width = parseFloat(item.inputs.width) || 0;
+                    const height = parseFloat(item.inputs.height) || 0;
+                    const area = width * height;
+                    const qty = item.quantity;
+                    const totalSqft = area * qty;
+                    total = item.price * totalSqft;
+                    detail = (
+                      <div className="text-xs text-gray-500">
+                        {width} × {height} ft<br />
+                        Area: {area.toFixed(2)} sqft × {qty} = {totalSqft.toFixed(2)} sqft
+                      </div>
+                    );
+                  } else if (item.priceType === "lf" && item.inputs?.length) {
+                    const length = parseFloat(item.inputs.length) || 0;
+                    const qty = item.quantity;
+                    const totalLf = length * qty;
+                    total = item.price * totalLf;
+                    detail = (
+                      <div className="text-xs text-gray-500">
+                        {length} ft<br />
+                        Total: {length} × {qty} = {totalLf.toFixed(2)} lf
+                      </div>
+                    );
+                  } else {
+                    total = item.price * item.quantity;
+                  }
+                  return (
+                    <tr key={index} className="border-b border-gray-100">
+                      <td className="py-3 text-gray-900">
+                        {item.name}
+                        {detail}
+                      </td>
+                      <td className="py-3 text-gray-700">{item.quantity}</td>
+                      <td className="py-3 text-gray-700">${item.price}</td>
+                      <td className="py-3 text-gray-900">${total.toLocaleString()}</td>
+                    </tr>
+                  );
+                })}
 
-                <tr className="border-b border-gray-200">
-                  <td colSpan="3" className="py-3 text-right font-semibold text-gray-900">
-                    Subtotal:
-                  </td>
-                  <td className="py-3 font-semibold text-gray-900">
-                    ${selectedBill.subTotal?.toLocaleString()}
-                  </td>
-                </tr>
                 <tr className="border-b border-gray-200">
                   <td colSpan="3" className="py-3 text-right font-semibold text-gray-900">
                     Tax:
                   </td>
                   <td className="py-3 font-semibold text-gray-900">
                     ${selectedBill.tax?.toLocaleString()}
+                  </td>
+                </tr>
+                <tr className="border-b border-gray-200">
+                  <td colSpan="3" className="py-3 text-right font-semibold text-gray-900">
+                    Subtotal:
+                  </td>
+                  <td className="py-3 font-semibold text-gray-900">
+                    ${selectedBill.subTotal?.toLocaleString()}
                   </td>
                 </tr>
                 <tr className="border-b-2 border-gray-200">
@@ -121,8 +155,8 @@ const InvoiceModal = ({ isOpen, onClose, selectedBill }) => {
           <div className="text-center text-sm text-gray-600 border-t pt-6">
             <p className="font-medium mb-2">
               <strong>Thank you for your order!</strong> 10% GST application on total amount.
-              Please note that this is non refundable amount. For any assistance please write email
-              <strong> help@mydomain.com</strong>
+              Please note that this is non refundable amount and the product may contain tier pricing . For any assistance please write email
+              <strong> help@pos.com</strong>
             </p>
           </div>
         </div>

@@ -4,7 +4,7 @@ const adminSchema = new mongoose.Schema({
   adminId: {
     type: String,
     required: true,
-    unique: true // Ensure adminId is unique (e.g., "admin-001")
+    unique: true
   },
   name: {
     type: String,
@@ -13,7 +13,7 @@ const adminSchema = new mongoose.Schema({
   email: {
     type: String,
     required: true,
-    unique: true // Email must also be unique
+    unique: true
   },
   number: {
     type: String,
@@ -30,6 +30,19 @@ const adminSchema = new mongoose.Schema({
   packageId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Package"
+  },
+  paymentMethods: {
+    type: [String],
+    enum: ["cash", "stripe"],
+    default: ["cash"]
+  },
+  stripeSecret: {
+    type: String,
+    default: ""
+  },
+  createdAt: {
+    type: Date,
+    required: true
   },
   expiresAt: {
     type: Date,

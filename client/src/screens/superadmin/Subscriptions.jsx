@@ -16,6 +16,8 @@ import {
   Trash2
 } from "lucide-react"
 import axios from "../../utils/axiosConfig";
+import { getTrustedUtcDate } from "../../utils/dateUtils";
+import Spinner from '../../components/Spinner';
 
 const SubscriptionsScreen = () => {
   const [admins, setAdmins] = useState([])
@@ -25,30 +27,27 @@ const SubscriptionsScreen = () => {
   const [statusFilter, setStatusFilter] = useState("all")
   const [selectedAdmin, setSelectedAdmin] = useState(null)
   const [showModal, setShowModal] = useState(false)
+  const [trustedDate, setTrustedDate] = useState(null);
 
   const auth = JSON.parse(localStorage.getItem("auth") || "{}");
   const token = auth?.token;
-useEffect(() => {
-  const fetchAdmins = async () => {
-    try {
-      if (!token) {
-        console.warn("No token found");
-        return;
-      }
 
-      setLoading(true);
-
+  useEffect(() => {
+    async function fetchTrustedDateAndAdmins() {
+      // Always fetch a fresh trusted date
+      let date = await getTrustedUtcDate();
+      setTrustedDate(date);
+      
       const res = await axios.get("/api/auth/superadmin/subscriptions", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
-
+      
       const data = res.data;
-
       const formatted = data.map(admin => {
         const end = new Date(admin.endDate);
-        const today = new Date();
+        const today = date ? new Date(date) : new Date();
         const diffTime = end.getTime() - today.getTime();
         const daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
@@ -72,19 +71,12 @@ useEffect(() => {
           createdAt: admin.createdAt,
         };
       });
-
       setAdmins(formatted);
       setFilteredAdmins(formatted);
-    } catch (err) {
-      console.error("Error fetching subscriptions:", err.response?.data || err.message);
-    } finally {
       setLoading(false);
     }
-  };
-
-  fetchAdmins();
-}, []);
-
+    fetchTrustedDateAndAdmins();
+  }, []);
 
   // Filter admins
   useEffect(() => {
@@ -93,10 +85,10 @@ useEffect(() => {
     if (searchTerm) {
       filtered = filtered.filter(
         admin =>
-          admin.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          admin.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          admin.userId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          admin.packageName.toLowerCase().includes(searchTerm.toLowerCase())
+          (admin.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (admin.email || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (admin.userId || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (admin.packageName || "").toLowerCase().includes(searchTerm.toLowerCase())
       )
     }
 
@@ -150,27 +142,30 @@ useEffect(() => {
       minute: "2-digit"
     })
   }
-const handleDelete = async (adminId) => {
-  const confirmDelete = window.confirm("Are you sure you want to delete this admin and all their data?");
-  if (!confirmDelete) return;
 
-  try {
-    const res = await axios.delete(`/api/auth/admin/${adminId}`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+  const handleDelete = async (adminId) => {
+    const confirmDelete = window.confirm("Are you sure you want to delete this admin and all their data?");
+    if (!confirmDelete) return;
 
-    alert(res.data.message);
-    setAdmins(prev => prev.filter(a => a.id !== adminId));
-    setShowModal(false);
-  } catch (err) {
-    console.error("Delete error:", err.response?.data || err.message);
-    alert(err.response?.data?.message || "An error occurred while deleting admin.");
+    try {
+      const res = await axios.delete(`/api/auth/admin/${adminId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      alert(res.data.message);
+      setAdmins(prev => prev.filter(a => a.id !== adminId));
+      setShowModal(false);
+    } catch (err) {
+      console.error("Delete error:", err.response?.data || err.message);
+      alert(err.response?.data?.message || "An error occurred while deleting admin.");
+    }
+  };
+
+  if (loading) {
+    return <Spinner />;
   }
-};
-
-
 
   return (
     <div className="space-y-6">

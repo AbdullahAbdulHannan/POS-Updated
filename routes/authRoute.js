@@ -5,6 +5,7 @@ const { verifyToken } = require("../middleware/authMiddleware");
 const { getNewRequests, getAllSubscriptions, deleteSubscription } = require("../controllers/superAdminController");
 const subscriptionModel = require("../models/subscriptionModel");
 const admin = require("../models/admin");
+const { getTrustedUtcDate } = require('../utils/dateUtils');
 
 router.post("/superadmin/login", superadminLogin);
 router.post("/superadmin/create-admin", verifyToken("superadmin"), createAdmin);
@@ -30,9 +31,9 @@ router.patch("/approve-renewal/:requestId", verifyToken("superadmin"), async (re
       return res.status(404).json({ message: "Subscription not found" });
     }
 
-    const startDate = new Date();
-    const endDate = new Date();
-    endDate.setDate(startDate.getDate() + request.packageId.durationInDays);
+    // Use trusted UTC time
+    const startDate = await getTrustedUtcDate();
+    const endDate = new Date(startDate.getTime() + request.packageId.durationInDays * 24 * 60 * 60 * 1000);
 
     subscription.startDate = startDate;
     subscription.endDate = endDate;

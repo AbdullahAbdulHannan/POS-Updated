@@ -28,13 +28,13 @@ const Profile = () => {
   const [user, setUser] = useState({
     _id: "",
     name: "",
-    userId: "",
+    adminId: "",
     email: "",
-    phone: "",
+    number: "",
     role: "cashier",
     address: "",
-    joinDate: "",
-    lastLogin: "",
+    createdAt: "",
+    expiresAt: "",
   });
   const [editing, setEditing] = useState(false);
   const [activeTab, setActiveTab] = useState("profile");
@@ -44,23 +44,25 @@ const Profile = () => {
   const [passwordForm] = Form.useForm();
 
   useEffect(() => {
-    const auth = localStorage.getItem("auth");
-    if (auth) {
-      const userData = JSON.parse(auth);
-      // Mock additional data for demo
-      const mockUser= {
-        ...userData,
-        email: userData.email || "user@pos.com",
-        phone: userData.phone || "+92 98765 43210",
-        address: userData.address || "123 Business Street, Karachi, Pakistan",
-        joinDate: userData.joinDate || "2024-01-15",
-        lastLogin: new Date().toISOString(),
-
-      };
-      setUser(mockUser);
-      setFormData(mockUser);
-    }
+    const fetchProfile = async () => {
+      try {
+        const token = JSON.parse(localStorage.getItem("auth") || "{}").token;
+        const { data } = await axios.get("/api/admin/profile", {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setUser(data);
+        setFormData({
+          ...data,
+          paymentMethods: data.paymentMethods || ["cash"],
+          stripeSecret: data.stripeSecret || ""
+        });
+      } catch (error) {
+        message.error("Failed to load profile");
+      }
+    };
+    fetchProfile();
   }, []);
+  
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
@@ -79,12 +81,21 @@ const Profile = () => {
     }));
   };
 
-  const handleSave = () => {
-    // In a real app, this would make an API call
-    setUser(prev => ({ ...prev, ...formData }));
-    localStorage.setItem("auth", JSON.stringify({ ...user, ...formData }));
-    setEditing(false);
-    // Show success message
+  const handleSave = async () => {
+    try {
+      const token = JSON.parse(localStorage.getItem("auth") || "{}").token;
+      const { data } = await axios.put("/api/admin/profile", formData, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setUser(data);
+      console.log(user);
+      
+      setFormData(data);
+      setEditing(false);
+      message.success("Profile updated successfully!");
+    } catch (error) {
+      message.error("Failed to update profile");
+    }
   };
 
   const handleCancel = () => {
@@ -184,16 +195,16 @@ const Profile = () => {
                 
                 <h3 className="text-xl font-semibold text-gray-900 mb-1">{user.name}</h3>
                 <p className="text-gray-600 capitalize mb-2">{user.role}</p>
-                <p className="text-sm text-gray-500">ID: {user.userId}</p>
+                <p className="text-sm text-gray-500">ID: {user.adminId}</p>
                 
                 <div className="mt-4 pt-4 border-t border-gray-200">
                   <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
                     <Calendar className="h-4 w-4" />
-                    <span>Joined {new Date(user.joinDate).toLocaleDateString()}</span>
+                    <span>Joined {new Date(user.createdAt).toLocaleDateString()}</span>
                   </div>
                   <div className="flex items-center justify-center space-x-2 text-sm text-gray-600 mt-2">
                     <Clock className="h-4 w-4" />
-                    <span>Last login: {new Date(user.lastLogin).toLocaleDateString()}</span>
+                    <span>Expires: {new Date(user.expiresAt).toLocaleDateString()}</span>
                   </div>
                 </div>
               </div>
@@ -253,49 +264,72 @@ const Profile = () => {
                         {editing ? (
                           <input
                             type="tel"
-                            value={formData.phone || ""}
+                            value={formData.number || ""}
                             onChange={(e) => handleInputChange("phone", e.target.value)}
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           />
                         ) : (
                           <div className="flex items-center space-x-2 p-3 bg-gray-50 rounded-lg">
-                            <Phone className="h-4 w-4 text-gray-400" />
-                            <span>{user.phone}</span>
+                            <number className="h-4 w-4 text-gray-400" />
+                            <span>{user.number}</span>
                           </div>
                         )}
                       </div>
 
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Role
-                        </label>
-                        <div className="flex items-center space-x-2 p-3 bg-gray-50 rounded-lg">
-                          <Shield className="h-4 w-4 text-gray-400" />
-                          <span className="capitalize">{user.role}</span>
-                        </div>
-                      </div>
+                     
                     </div>
+
+                    
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Address
-                      </label>
-                      {editing ? (
-                        <textarea
-                          value={formData.address || ""}
-                          onChange={(e) => handleInputChange("address", e.target.value)}
-                          rows={3}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        />
-                      ) : (
-                        <div className="flex items-start space-x-2 p-3 bg-gray-50 rounded-lg">
-                          <MapPin className="h-4 w-4 text-gray-400 mt-0.5" />
-                          <span>{user.address}</span>
-                        </div>
-                      )}
-                    </div>
+  <label className="block text-sm font-medium text-gray-700 mb-2">Accepted Payment Methods</label>
+  <div className="flex items-start gap-4">
+    <label className="flex items-center space-x-2">
+      <input
+        type="checkbox"
+        checked={formData.paymentMethods?.includes("cash")}
+        onChange={(e) => {
+          if (e.target.checked) {
+            handleInputChange("paymentMethods", [...new Set([...(formData.paymentMethods || []), "cash"])]);
+          } else {
+            handleInputChange("paymentMethods", (formData.paymentMethods || []).filter(pm => pm !== "cash"));
+          }
+        }}
+        className="h-4 w-4 text-blue-600"
+      />
+      <span>Cash</span>
+    </label>
+    <label className="flex items-center space-x-2">
+      <input
+        type="checkbox"
+        checked={formData.paymentMethods?.includes("stripe")}
+        onChange={(e) => {
+          if (e.target.checked) {
+            handleInputChange("paymentMethods", [...new Set([...(formData.paymentMethods || []), "stripe"])]);
+          } else {
+            handleInputChange("paymentMethods", (formData.paymentMethods || []).filter(pm => pm !== "stripe"));
+          }
+        }}
+        className="h-4 w-4 text-blue-600"
+      />
+      <span>Stripe</span>
+    </label>
+  </div>
+</div>
 
-                   
+{formData.paymentMethods?.includes("stripe") && (
+  <div className="mt-3">
+    <label className="block text-sm font-medium text-gray-700 mb-1">Stripe Secret Key</label>
+    <input
+      type="text"
+      value={formData.stripeSecret || ""}
+      onChange={(e) => handleInputChange("stripeSecret", e.target.value)}
+      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+      placeholder="sk_test_..."
+    />
+  </div>
+)}
+
                   </div>
                 
 

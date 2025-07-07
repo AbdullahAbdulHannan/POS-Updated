@@ -1,18 +1,32 @@
 const Product = require("../models/Product");
 const mongoose = require("mongoose");
 const ObjectId = mongoose.Types.ObjectId;
+
 const createProduct = async (req, res) => {
   try {
-    const { name, price, quantity, image, categoryId, assignedStock = [] } = req.body;
-
-    const product = new Product({
+    const {
       name,
       price,
       quantity,
       image,
-      category: categoryId, // ✅ use categoryId here
+      categoryId,
+      priceType = "unit",
+      pricingMode = "fixed",
+      tierPricing = [],
+      assignedStock = []
+    } = req.body;
+
+    const product = new Product({
+      name,
+      price: pricingMode === "fixed" ? price : 0,
+      quantity,
+      image,
+      priceType,
+      pricingMode,
+      tierPricing,
+      category: categoryId,
       admin: req.user.id,
-      assignedStock,
+      assignedStock
     });
 
     await product.save();
@@ -22,25 +36,46 @@ const createProduct = async (req, res) => {
   }
 };
 
-  
-  const updateProduct = async (req, res) => {
-    try {
-      const productId = req.params.id;
-      const updatedProduct = await Product.findOneAndUpdate(
-        { _id: productId, admin: req.user.id }, // only update if admin owns it
-        { ...req.body },
-        { new: true }
-      );
-  
-      if (!updatedProduct) {
-        return res.status(404).json({ message: "Product not found or unauthorized" });
-      }
-  
-      res.status(200).json({ message: "Product updated", product: updatedProduct });
-    } catch (err) {
-      res.status(500).json({ message: "Error updating product", error: err.message });
+
+const updateProduct = async (req, res) => {
+  try {
+    const productId = req.params.id;
+
+    const updatedFields = {
+      ...req.body
+    };
+
+    // If pricing mode is tier, ensure price is 0
+    if (req.body.pricingMode === "tier") {
+      updatedFields.price = 0;
     }
-  };
+
+    const updatedProduct = await Product.findOneAndUpdate(
+      { _id: productId, admin: req.user.id },
+      updatedFields,
+      { new: true }
+    );
+
+    if (!updatedProduct) {
+      return res.status(404).json({ message: "Product not found or unauthorized" });
+    }
+
+    res.status(200).json({ message: "Product updated", product: updatedProduct });
+  } catch (err) {
+    res.status(500).json({ message: "Error updating product", error: err.message });
+  }
+};
+
+
+function getTierPrice(value, tiers) {
+  for (let t of tiers) {
+    if (value >= t.min && (t.max === undefined || t.max === null || value <= t.max)) {
+      return t.price;
+    }
+  }
+  return null; // or fallback
+}
+
 
   const deleteProduct = async (req, res) => {
     try {
@@ -150,5 +185,5 @@ const getUserStockController = async (req, res) => {
 };
 
 
-  module.exports={getProducts,createProduct,updateProduct,deleteProduct,assignStockController,getUserStockController}
+  module.exports={getProducts,createProduct,updateProduct,deleteProduct,assignStockController,getUserStockController,getTierPrice}
   

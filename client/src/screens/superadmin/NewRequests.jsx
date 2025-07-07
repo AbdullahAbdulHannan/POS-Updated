@@ -15,24 +15,32 @@ const NewRequestsScreen = () => {
       try {
         const auth = JSON.parse(localStorage.getItem("auth") || "{}");
         const token = auth?.token;
-
-        const res = await fetch("/api/auth/superadmin/requests", {
+  
+        if (!token) {
+          throw new Error("No token found in localStorage");
+        }
+  
+        const res = await axios.get("/api/auth/superadmin/requests", {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
-
-        if (!res.ok) throw new Error("Unauthorized or failed to fetch");
-
-        const data = await res.json();
-        setRequests(data);
+  
+        setRequests(res.data);
       } catch (err) {
-        console.error("Error fetching requests:", err.message);
+        console.error("💥 Error fetching requests:", err?.response?.data || err.message);
+  
+        if (err.response?.status === 401 || err.response?.status === 403) {
+          message.error("Unauthorized. Please log in again.");
+          localStorage.removeItem("auth");
+          window.location.href = "/superadmin-login"; // adjust this route if needed
+        }
       }
     };
-
+  
     fetchRequests();
   }, []);
+  
 
   const formatDate = date =>
     new Date(date).toLocaleString("en-IN", {

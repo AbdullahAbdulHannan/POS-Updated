@@ -1,6 +1,7 @@
 const { get } = require("mongoose");
 const User = require("../models/userModel");
 const billsModel = require("../models/billsModel");
+const { getTrustedUtcDate } = require("../utils/dateUtils");
 const getTotalSales = async (req, res) => {
   try {
     const users = await User.find({ admin: req.user.id });
@@ -31,15 +32,20 @@ const getTotalOrders = async (req, res) => {
 };
 const getMonthlySales = async (req, res) => {
   try {
+      // Clear the cache before fetching trusted date
     const adminId = req.user.id;
     const users = await User.find({ admin: adminId }).select("_id");
     const userIds = users.map(u => u._id);
 
     // Last 12 months range
-    const start = new Date();
+    const start = await getTrustedUtcDate();
     start.setMonth(start.getMonth() - 11);
     start.setDate(1);
     start.setHours(0, 0, 0, 0);
+
+    const trustedNow = new Date()
+    console.log('Trusted current date (now):', trustedNow.toISOString());
+    console.log('Calculated start date (12 months ago):', start.toISOString());
 
     const sales = await billsModel.aggregate([
       {
@@ -70,7 +76,7 @@ const getMonthlySales = async (req, res) => {
 
     // Build the last 12 months array, oldest to newest
     const result = [];
-    const now = new Date();
+    const now = await getTrustedUtcDate()
     for (let i = 11; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const year = d.getFullYear();
@@ -105,7 +111,7 @@ const getTopCategories = async (req, res) => {
 
     bills.forEach(bill => {
       bill.cartItems.forEach(item => {
-        const name = item.category.name || "Unknown";
+        const name = item.category?.name || "Unknown";
         categoryMap[name] = (categoryMap[name] || 0) + 1;
       });
     });

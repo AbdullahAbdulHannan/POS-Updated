@@ -5,6 +5,7 @@ const User=require("../models/userModel")
 const Subscription = require('../models/subscriptionModel');
 const Request = require('../models/requestModel');
 const Package = require('../models/packageModel');
+const { getTrustedUtcDate } = require("../utils/dateUtils");
 
 const superadminLogin = async (req, res) => {
   const { email, password } = req.body;
@@ -99,9 +100,11 @@ const createAdmin = async (req, res) => {
       return res.status(400).json({ message: "Invalid package information in request" });
     }
 
-    const startDate = new Date();
-    const endDate = new Date();
-    endDate.setDate(startDate.getDate() + request.packageId.durationInDays);
+    // Use trusted UTC time
+    const startDate = await getTrustedUtcDate();
+    
+    // Exclusive expiry: expires at the same time after durationInDays
+    const endDate = new Date(startDate.getTime() + request.packageId.durationInDays * 24 * 60 * 60 * 1000);
 
     const newAdmin = new Admin({
       adminId,
@@ -109,6 +112,7 @@ const createAdmin = async (req, res) => {
       email,
       number,
       password,
+      createdAt:startDate,
       expiresAt: endDate
     });
 
@@ -149,7 +153,7 @@ const adminLogin = async (req, res) => {
 
     // Check subscription
     const subscription = await Subscription.findOne({ adminId: admin._id });
-    const now = new Date();
+    const now = await getTrustedUtcDate();
     if (!subscription || subscription.endDate < now) {
       return res.status(403).json({ message: "Subscription expired" });
     }
@@ -181,7 +185,7 @@ const userLogin = async (req, res) => {
 
     // Check the parent Admin's subscription
     const subscription = await Subscription.findOne({ adminId: user.admin });
-    const now = new Date();
+    const now = await getTrustedUtcDate();
 
     if (!subscription || subscription.endDate < now) {
       return res.status(403).json({ message: "Subscription expired" });
@@ -211,7 +215,8 @@ const checkExpiredAdmin = async (req, res) => {
     if (!admin) return res.status(404).json({ valid: false, message: "No admin found with this email" });
 
     const subscription = await Subscription.findOne({ adminId: admin._id });
-    if (!subscription || subscription.endDate < new Date()) {
+    const now = await getTrustedUtcDate();
+    if (!subscription || subscription.endDate < now) {
       return res.status(200).json({ valid: true, message: "Eligible for renewal" });
     }
 

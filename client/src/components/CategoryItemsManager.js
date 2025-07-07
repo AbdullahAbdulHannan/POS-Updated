@@ -17,7 +17,7 @@ import {
   AlertTriangle
 } from "lucide-react"
 import { Button, Modal, Form, Input, InputNumber, message, Card, List, Upload, Popconfirm, Spin } from "antd"
-import axios from "axios"
+import axios from "../utils/axiosConfig"
 
 // CategoryModal (no changes needed here)
 const CategoryModal = ({
@@ -118,39 +118,33 @@ const CategoryModal = ({
 }
 const token = JSON.parse(localStorage.getItem("auth") || "{}").token
 // ProductModal (no changes needed here)
-const ProductModal = ({
-  isOpen,
-  onClose,
-  onSave,
-  product,
-  loading = false
-}) => {
+const ProductModal = ({ isOpen, onClose, onSave, product, loading = false }) => {
   const [formData, setFormData] = useState({
     name: "",
     price: 0,
     quantity: 0,
-    image: ""
-  })
-  const [errors, setErrors] = useState({})
-  const [users, setUsers] = useState([]);
+    image: "",
+    priceType: "unit",
+    tierPricing: []
+  });
   const [assignedStock, setAssignedStock] = useState({});
-  
-useEffect(() => {
-  const fetchUsers = async () => {
-    try {
-      const res = await axios.get("/api/admin/users", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setUsers(res.data || []);
-    } catch (error) {
-      console.error("Failed to load users", error);
-    }
-  };
+  const [users, setUsers] = useState([]);
+  const [errors, setErrors] = useState({});
 
-  if (isOpen) {
-    fetchUsers();
-  }
-}, [isOpen]);
+  const token = JSON.parse(localStorage.getItem("auth") || "{}").token;
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const res = await axios.get("/api/admin/users", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setUsers(res.data || []);
+      } catch (err) {
+        console.error("Failed to load users", err);
+      }
+    };
+    if (isOpen) fetchUsers();
+  }, [isOpen]);
 
   useEffect(() => {
     if (product) {
@@ -158,211 +152,251 @@ useEffect(() => {
         name: product.name || "",
         price: product.price || 0,
         quantity: product.quantity || 0,
-        image: product.image || ""
-      })
+        image: product.image || "",
+        priceType: product.priceType || "unit",
+        tierPricing: product.tierPricing || [],
+      });
+      const newStock = {};
+      product.assignedStock?.forEach((s) => {
+        newStock[s.userId] = s.quantity;
+      });
+      setAssignedStock(newStock);
     } else {
       setFormData({
         name: "",
         price: 0,
         quantity: 0,
-        image: ""
-      })
+        image: "",
+        priceType: "unit",
+        tierPricing: []
+      });
+      setAssignedStock({});
     }
-    setErrors({})
-  }, [product, isOpen])
+    setErrors({});
+  }, [product, isOpen]);
 
-  const handleSubmit = e => {
-    e.preventDefault()
+  const handleTierChange = (index, field, value) => {
+    const updated = [...formData.tierPricing];
+    updated[index][field] = field === "price" ? parseFloat(value) : parseFloat(value) || undefined;
+    setFormData((prev) => ({ ...prev, tierPricing: updated }));
+  };
 
-    const newErrors = {}
-    if (!formData.name.trim()) newErrors.name = "Product name is required"
-    if (formData.price <= 0) newErrors.price = "Price must be greater than 0"
-    if (formData.quantity < 0)
-      newErrors.quantity = "Quantity cannot be negative"
+  const addTier = () => {
+    setFormData((prev) => ({
+      ...prev,
+      tierPricing: [...prev.tierPricing, { min: 0, max: undefined, price: 0 }]
+    }));
+  };
 
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors)
-      return
-    }
+  const removeTier = (index) => {
+    const updated = [...formData.tierPricing];
+    updated.splice(index, 1);
+    setFormData((prev) => ({ ...prev, tierPricing: updated }));
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const newErrors = {};
+    if (!formData.name.trim()) newErrors.name = "Product name is required";
+    if (formData.price <= 0) newErrors.price = "Price must be > 0";
+    if (formData.quantity < 0) newErrors.quantity = "Quantity cannot be negative";
+    setErrors(newErrors);
+    if (Object.keys(newErrors).length > 0) return;
 
     onSave({
-  name: formData.name.trim(),
-  price: formData.price,
-  quantity: formData.quantity,
-  image: formData.image.trim() || undefined,
-  assignedStock: Object.entries(assignedStock).map(([userId, quantity]) => ({
-    userId,
-    quantity,
-  })),
-});
+      ...formData,
+      assignedStock: Object.entries(assignedStock).map(([userId, quantity]) => ({
+        userId,
+        quantity
+      }))
+    });
+  };
 
-  }
-
-  if (!isOpen) return null
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-semibold text-gray-900">
             {product ? "Edit Product" : "Add New Product"}
           </h2>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
             <X className="h-5 w-5 text-gray-500" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Name */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Product Name *
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Product Name *</label>
             <input
               type="text"
               value={formData.name}
-              onChange={e => {
-                setFormData(prev => ({ ...prev, name: e.target.value }))
-                setErrors(prev => ({ ...prev, name: "" }))
+              onChange={(e) => {
+                setFormData((prev) => ({ ...prev, name: e.target.value }));
+                setErrors((prev) => ({ ...prev, name: "" }));
               }}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.name ? "border-red-300" : "border-gray-300"
-                }`}
+              className="w-full px-3 py-2 border rounded-lg"
               placeholder="Enter product name"
               autoFocus
             />
-            {errors.name && (
-              <p className="text-red-500 text-sm mt-1">{errors.name}</p>
-            )}
+            {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
           </div>
 
+          {/* Quantity & Price */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Price *
-              </label>
-              <div className="relative">
-                <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={formData.price}
-                  onChange={e => {
-                    setFormData(prev => ({
-                      ...prev,
-                      price: parseFloat(e.target.value) || 0
-                    }))
-                    setErrors(prev => ({ ...prev, price: "" }))
-                  }}
-                  className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.price ? "border-red-300" : "border-gray-300"
-                    }`}
-                  placeholder="0.00"
-                />
-              </div>
-              {errors.price && (
-                <p className="text-red-500 text-sm mt-1">{errors.price}</p>
-              )}
+              <label className="block text-sm font-medium text-gray-700 mb-2">Quantity *</label>
+              <input
+                type="number"
+                min="0"
+                value={formData.quantity}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, quantity: parseInt(e.target.value) || 0 }))
+                }
+                className="w-full px-3 py-2 border rounded-lg"
+              />
+              {errors.quantity && <p className="text-red-500 text-sm mt-1">{errors.quantity}</p>}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Available Quantity *
-              </label>
-              <div className="relative">
-                <Hash className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <input
-                  type="number"
-                  min="0"
-                  value={formData.quantity}
-                  onChange={e => {
-                    setFormData(prev => ({
-                      ...prev,
-                      quantity: parseInt(e.target.value) || 0
-                    }))
-                    setErrors(prev => ({ ...prev, quantity: "" }))
-                  }}
-                  className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.quantity ? "border-red-300" : "border-gray-300"
-                    }`}
-                  placeholder="0"
-                />
-              </div>
-              {errors.quantity && (
-                <p className="text-red-500 text-sm mt-1">{errors.quantity}</p>
-              )}
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Product Image URL
-            </label>
-            <div className="relative">
-              <ImageIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <label className="block text-sm font-medium text-gray-700 mb-2">Product Image URL</label>
               <input
                 type="url"
                 value={formData.image}
-                onChange={e =>
-                  setFormData(prev => ({ ...prev, image: e.target.value }))
-                }
-                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                onChange={(e) => setFormData((prev) => ({ ...prev, image: e.target.value }))}
+                className="w-full px-3 py-2 border rounded-lg"
                 placeholder="https://example.com/image.jpg"
               />
             </div>
           </div>
-{users.length > 0 && (
-  <div className="space-y-2">
-    <label className="block text-sm font-medium text-gray-700">Assign Stock to Users</label>
-    {users.map((user) => (
-      <div key={user._id} className="flex items-center gap-2">
-        <span className="text-gray-600 w-32 truncate">{user.shopName || user.email}</span>
-        <input
-          type="number"
-          min="0"
-          value={assignedStock[user._id] || ""}
-          onChange={(e) =>
-            setAssignedStock((prev) => ({
-              ...prev,
-              [user._id]: parseInt(e.target.value) || 0,
-            }))
-          }
-          className="w-32 px-3 py-1 border rounded-lg focus:ring focus:ring-blue-500"
-          placeholder="0"
-        />
-      </div>
-    ))}
-  </div>
-)}
 
-          <div className="flex space-x-3 pt-4">
+          {/* Price Type */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Size Type</label>
+              <select
+                value={formData.priceType}
+                onChange={(e) => setFormData((prev) => ({ ...prev, priceType: e.target.value }))}
+                className="w-full px-3 py-2 border rounded-lg"
+              >
+                <option value="unit">Unit</option>
+                <option value="sqft">Square Foot (sqft)</option>
+                <option value="lf">Linear Foot (lf)</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Fixed Price *</label>
+            <input
+              type="number"
+              step="0.01"
+              value={formData.price}
+              onChange={(e) => setFormData((prev) => ({ ...prev, price: parseFloat(e.target.value) || 0 }))}
+              className="w-full px-3 py-2 border rounded-lg"
+              required
+            />
+            {errors.price && <p className="text-red-500 text-sm mt-1">{errors.price}</p>}
+          </div>
+
+          {/* Tiered Pricing Inputs (optional) */}
+          <div>
+            <div className="flex justify-between items-center mb-2">
+              <label className="text-sm font-medium text-gray-700">Tier Pricing (optional)</label>
+              <button
+                type="button"
+                onClick={addTier}
+                className="text-sm text-blue-600 hover:underline"
+              >
+                + Add Tier
+              </button>
+            </div>
+            <div className="space-y-2">
+              {formData.tierPricing.map((tier, index) => (
+                <div key={index} className="flex gap-2 items-center">
+                  <input
+                    type="number"
+                    placeholder="Min"
+                    value={tier.min}
+                    className="w-20 px-2 py-1 border rounded"
+                    onChange={(e) => handleTierChange(index, "min", e.target.value)}
+                  />
+                  <input
+                    type="number"
+                    placeholder="Max"
+                    value={tier.max ?? ""}
+                    className="w-20 px-2 py-1 border rounded"
+                    onChange={(e) => handleTierChange(index, "max", e.target.value)}
+                  />
+                  <input
+                    type="number"
+                    placeholder="Price"
+                    value={tier.price}
+                    className="w-28 px-2 py-1 border rounded"
+                    onChange={(e) => handleTierChange(index, "price", e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="text-red-500 text-sm"
+                    onClick={() => removeTier(index)}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Stock Assignment */}
+          {users.length > 0 && (
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">Assign Stock</label>
+              {users.map((user) => (
+                <div key={user._id} className="flex items-center gap-2">
+                  <span className="text-sm w-32 truncate">{user.shopName || user.email}</span>
+                  <input
+                    type="number"
+                    min="0"
+                    value={assignedStock[user._id] || ""}
+                    onChange={(e) =>
+                      setAssignedStock((prev) => ({
+                        ...prev,
+                        [user._id]: parseInt(e.target.value) || 0
+                      }))
+                    }
+                    className="w-24 px-3 py-1 border rounded-lg"
+                    placeholder="0"
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-4 pt-6">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              className="px-4 py-2 border border-gray-300 rounded-lg"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 flex items-center justify-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
             >
-              {loading ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              ) : (
-                <>
-                  <Save className="h-4 w-4" />
-                  <span>{product ? "Update" : "Create"}</span>
-                </>
-              )}
+              {loading ? "Saving..." : product ? "Update" : "Create"}
             </button>
           </div>
         </form>
       </div>
     </div>
-  )
-}
+  );
+};
+
+
 
 const CategoryItemsManager = () => {
   const [categories, setCategories] = useState([])
@@ -665,9 +699,9 @@ const CategoryItemsManager = () => {
 
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-lg font-bold text-gray-900">
+                      {/* <p className="text-lg font-bold text-gray-900">
                         Rs.{product.price}
-                      </p>
+                      </p> */}
                       <p
                         className={`text-sm ${product.quantity > 10
                             ? "text-gray-600"

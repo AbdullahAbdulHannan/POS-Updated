@@ -14,10 +14,8 @@ const CutomerPage = () => {
       const { data } = await axios.get("/api/bills/get-bills");
       setBillsData(data);
       dispatch({ type: "HIDE_LOADING" });
-      console.log(data);
     } catch (error) {
       dispatch({ type: "HIDE_LOADING" });
-      console.log(error);
     }
   };
   //useEffect

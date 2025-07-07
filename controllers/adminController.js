@@ -66,4 +66,44 @@ const getUserCount = async (req, res) => {
     }
   };
 
-module.exports = { createUser,getUsersByAdmin,getUserCount,updatePassword };
+const getAdminProfile = async (req, res) => {
+  try {
+    const admin = await Admin.findById(req.user.id).select("-password");
+    if (!admin) return res.status(404).json({ message: "Admin not found" });
+    res.json(admin);
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Update admin profile
+const updateAdminProfile = async (req, res) => {
+  try {
+    const admin = await Admin.findByIdAndUpdate(
+      req.user.id,
+      { $set: req.body },
+      { new: true, runValidators: true }
+    ).select("-password");
+    if (!admin) return res.status(404).json({ message: "Admin not found" });
+    res.json(admin);
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+const getPaymentModes = async (req, res) => {
+  try {
+    const { adminId } = req.params;
+
+    const admin = await Admin.findById(adminId);
+    if (!admin) return res.status(404).json({ error: "Admin not found" });
+
+    res.json({
+      modes: admin.paymentMethods || ["cash"],
+      stripeKey: admin.stripeSecret || null
+    });
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
+  }
+};
+module.exports = { createUser,getUsersByAdmin,getUserCount,updatePassword ,getAdminProfile,updateAdminProfile,getPaymentModes};

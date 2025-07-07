@@ -14,11 +14,9 @@ const CreateUserForm = () => {
         setLoading(true);
         const auth = JSON.parse(localStorage.getItem("auth") || "{}");
         const token = auth.token;
-        // Replace with real API call to get user count for this admin
-        // const res = await axios.get("/api/admin/users/count", { headers: { Authorization: `Bearer ${token}` } });
-        // setUserCount(res.data.count);
-        
-        setUserCount(2); // mock: change to 4 to test limit
+        // Fetch real user count for this admin
+        const res = await axios.get("/api/admin/users/count", { headers: { Authorization: `Bearer ${token}` } });
+        setUserCount(res.data.count);
         setLoading(false);
       } catch (error) {
         setLoading(false);

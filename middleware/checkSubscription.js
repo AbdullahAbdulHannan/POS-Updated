@@ -34,6 +34,7 @@
 const Subscription = require('../models/subscriptionModel');
 const Admin = require('../models/admin');
 const User = require('../models/userModel');
+const { getTrustedUtcDate } = require('../utils/dateUtils');
 
 const checkSubscription = async (req, res, next) => {
   try {
@@ -58,7 +59,7 @@ const checkSubscription = async (req, res, next) => {
       return res.status(403).json({ hold: true, message: 'No active subscription found' });
     }
 
-    const now = new Date();
+    const now = await getTrustedUtcDate();
     const end = new Date(subscription.endDate);
 
     if (end < now) {

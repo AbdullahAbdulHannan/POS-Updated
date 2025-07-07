@@ -30,7 +30,6 @@ app.use("/api/admin/category", require("./routes/categoryRoute"));
 app.use("/api/admin/products", require("./routes/productRoute"));
 app.use("/api/admin/analytics", require("./routes/adminAnalyticsRoutes"));
 app.use("/api/packages", require("./routes/packageRoutes"));
-app.use("/api/stripe", require("./routes/stripeRoutes"));
 app.use("/api/checkout", require("./routes/checkoutRoutes"));
 
 
